@@ -1,0 +1,10 @@
+My helpful sources:
+
+
+Setup/Loop help:
+iventr - 30 days lost in space
+
+Learning how to do a state machine in C++:
+These are references and code i looked over to help me understand switch/cases
+https://forum.arduino.cc/t/state-machines-a-short-tutorial/580593
+https://github.com/j-bellavance/Tutorials/blob/master/State%20machines%20Tutorial/Part%201/TwoStateMachines/TwoStateMachines.ino
