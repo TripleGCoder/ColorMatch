@@ -18,6 +18,10 @@ const byte COL_PINS[COL] = { 6, 7, 8, 9 };
 
 Keypad heroKeypad = Keypad(makeKeymap(BUTTONS), ROW_PINS, COL_PINS, ROW, COL);
 
+//User System
+char pressedButton = NO_KEY;
+
+
 //LED SETUP
 #define RED_LED 13
 #define GREEN_LED 12
@@ -42,8 +46,10 @@ const byte MinL_lvl1 = 0;
 const byte MinL_lvl2 = 3;
 const byte MinL_lvl3 = 4;
 
+//Game Timing
+bool timeDone = false;
 
-char const LEDs[] = {'R\n', 'G\n', 'Y\n', 'B\n'};
+char const LEDs[] = {'R', 'G', 'Y', 'B'};
 byte currentIndex = 0; 
 
 
@@ -52,7 +58,7 @@ enum gameSTATE{
   FLASH_LEDS,
   UPDATE_PTRN,
   DISPLAY_PTRN,
-  AWAIT_RES,
+  GET_RES,
   CHECK_RES,
   UPDATE_GAME,
   GAME_WON,
@@ -214,23 +220,7 @@ void loop() {
           {
             byte randLED_index =  random(0,4);  //Using the random seeding choses a "random" number from 1-4
             //assign the color index to its color
-            if (randLED_index == 0)
-              {
-                nextLED = 'R';
-              }
-            else if (randLED_index == 1)
-              {
-                nextLED = 'G';
-              }
-            else if (randLED_index == 2)
-              {
-                nextLED = 'Y';
-              }
-            else
-              {
-                nextLED = 'B';
-              }
-
+            nextLED = LEDs[randLED_index];
             currentPattern[patternLen] = nextLED;
             patternLen++;
           }
@@ -244,25 +234,9 @@ void loop() {
       if (patternLen <  levelLength)
         {
           byte randLED_index = random(0,4);
-          if (randLED_index == 0)
-              {
-                nextLED = 'R';
-              }
-            else if (randLED_index == 1)
-              {
-                nextLED = 'G';
-              }
-            else if (randLED_index == 2)
-              {
-                nextLED = 'Y';
-              }
-            else
-              {
-                nextLED = 'B';
-              }
-
-            currentPattern[patternLen] = nextLED;
-            patternLen++;
+          nextLED = LEDs[randLED_index];
+          currentPattern[patternLen] = nextLED;
+          patternLen++;
         }
 
 
@@ -333,14 +307,30 @@ void loop() {
       }
       }
     }
-    currentState = DEBUG;
+    currentState = GET_RES;
+    break;
   }
 
 
 //--------------------------------------------------------------------|
 //------------------------AWAIT RES----------------------------------|
-  case AWAIT_RES: {
+  case GET_RES: {
+    //Awaits for 1 response then moves to STATE:CHECK_RES,
+    //Will return back if response is correct
+    pressedButton = NO_KEY;
+    pressedButton = heroKeypad.getKey();  // Wait until a button is pressed
+    bool timeout = timeDone;
 
+    if (pressedButton != NO_KEY)
+    {
+      currentState = CHECK_RES;
+    }
+    else if (timeout)
+    {
+      pressedButton = NO_KEY;
+      currentState = CHECK_RES;
+    }
+    //else it remain in Get Res 
     break;
   }
 
