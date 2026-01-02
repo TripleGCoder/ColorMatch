@@ -3,10 +3,6 @@
 const byte ROW = 2;
 const byte COL = 4;
 
-const byte Round1_Length = 5;
-const byte Round2_Length = 7;
-const byte Round3_Length = 9;
-
 
 char current_round = 1;
 
@@ -28,11 +24,27 @@ Keypad heroKeypad = Keypad(makeKeymap(BUTTONS), ROW_PINS, COL_PINS, ROW, COL);
 #define YELLOW_LED 11
 #define BLUE_LED 10
 
-//  GAME SETUP
-// const byte MAX_PATTERNS = 9;      //Defines the size of the array
-// int currentPattern[MAX_PATTERNS]; //Declares the array
-// char const LEDs[] = {'R\n', 'G\n', 'Y\n', 'B\n'};
-// byte currentIndex = 0; 
+//  GAME PATTERN SETUP
+const byte MAX_PATTERN = 9;      //Defines the size of the array
+char currentPattern[MAX_PATTERN]; //Declares the array
+byte patternLen = 0;              //len of current pattern
+byte startLen = 0;
+char nextLED;
+
+//Max Pattern Lenght per level
+const byte MaxL_lvl1 = 5;
+const byte MaxL_lvl2 = 7;
+const byte MaxL_lvl3 = MAX_PATTERN;
+byte levelLength = 0; //This will dictate the current Levels max length
+
+//Minimum starting Lenght per Level
+const byte MinL_lvl1 = 0;
+const byte MinL_lvl2 = 3;
+const byte MinL_lvl3 = 4;
+
+
+char const LEDs[] = {'R\n', 'G\n', 'Y\n', 'B\n'};
+byte currentIndex = 0; 
 
 
 enum gameSTATE{
@@ -54,43 +66,47 @@ bool allSync = false;
 int flashGoal = 0;
 int msDelay = 150;
 
+//Round variables
+int roundNum = 0;
+int gamelvl = 1;
+
 bool enRedLED = false;
 bool enGreenLED = false;
 bool enYellowLED = false;
 bool enBlueLED = false;
 
 
-void setup() {
-  //LED PINMODE Setup
-  pinMode(RED_LED, OUTPUT);
-  pinMode(GREEN_LED, OUTPUT);
-  pinMode(YELLOW_LED, OUTPUT);
-  pinMode(BLUE_LED, OUTPUT);
-  
-  Serial.begin(9600);  // Begin monitoring via the serial monitor
-  delay(200);          // Delay a brief period to let things settle before displaying prompt.
-  Serial.println("Press any button");
 
-}
 
-void flash_leds(bool Red_LED, bool Green_LED, bool Blue_LED, bool Yellow_LED, int flashGoal)
+
+
+
+void flash_leds()
 {
+  if (allSync)
+    {
+      enRedLED = true;
+      enGreenLED = true;
+      enYellowLED = true;
+      enBlueLED = true;
+    }
+
   delay(msDelay*2);
   for (int i = 0; i < flashGoal; i++)
     {
-      if (Red_LED)
+      if (enRedLED)
         {
           digitalWrite(RED_LED, HIGH);
         }
-      if (Green_LED)
+      if (enGreenLED)
         {
           digitalWrite(GREEN_LED, HIGH);
         }
-      if (Yellow_LED)
+      if (enYellowLED)
         {
           digitalWrite(YELLOW_LED, HIGH);
         }
-      if (Blue_LED)
+      if (enBlueLED)
         {
           digitalWrite(BLUE_LED, HIGH);
         }
@@ -104,6 +120,22 @@ void flash_leds(bool Red_LED, bool Green_LED, bool Blue_LED, bool Yellow_LED, in
       delay(msDelay);
     }
   
+}
+
+void setup() {
+  //LED PINMODE Setup
+  pinMode(RED_LED, OUTPUT);
+  pinMode(GREEN_LED, OUTPUT);
+  pinMode(YELLOW_LED, OUTPUT);
+  pinMode(BLUE_LED, OUTPUT);
+
+  randomSeed(analogRead(A0));  // A0 should be floating (not connected)
+
+  
+  Serial.begin(9600);  // Begin monitoring via the serial monitor
+  delay(200);          // Delay a brief period to let things settle before displaying prompt.
+  Serial.println("Press any button");
+
 }
 
 void loop() {
@@ -123,39 +155,130 @@ void loop() {
       {
         allSync = true;
         flashGoal = 7;
-        currentState = FLASH_LEDS;
+        currentState = UPDATE_PTRN;
+        flash_leds();
       }
+
+
 
     break;
   }
 
 //--------------------------------------------------------------------|
 //------------------------FLASH LEDs----------------------------------|
-  case FLASH_LEDS: {
-    //This state takes in the input of Decide which LED should flash (allSync || R,G,Y,B), the number of flashes it should do (flashGoal), and the speed of the flsahing (flashSPeed)
+//redacted
+//--------------------------------------------------------------------|
+//------------------------UPDATE PTRN----------------------------------|
+
+//Des: Will randomly add the next light to the current LED pattern 
+//In LEVEL 1, Start with empty list and start the pattern from 1 -> 5 patterns 
+//In LEVEL 2, Start with 3 light patern then 3->8
+//In LEVEL 3, Start with 4 light pattern then from 4 -> 9 
+
+  case UPDATE_PTRN: {
     
-    if (allSync)
+    if ((roundNum == 0))
       {
-        enRedLED = true;
-        enGreenLED = true;
-        enYellowLED = true;
-        enBlueLED = true;
+        patternLen = 0; //moves the cursor back to the beggining to start overwriting "clear" the pattern
+        //GAME PATTERN INITIALIZATION FOR LEVEL 1
+        if (gamelvl == 1)
+          {
+            startLen = MinL_lvl1;
+            levelLength = MaxL_lvl1;
+          }
+
+        //GAME PATTERN INITIALIZATION FOR LEVEL 2
+        if (gamelvl == 2)
+          {
+            startLen = MinL_lvl2;
+            levelLength =  MaxL_lvl2;            
+          }
+
+        //GAME PATTERN INITIALIZATION FOR LEVEL 3
+        if (gamelvl == 3)
+          {
+            startLen = MinL_lvl3;
+            levelLength = MaxL_lvl3;
+          }
+    
+
+        //Begin Prefilling the pattern for the level
+        for (byte i = 0; i < startLen; i++)
+          {
+            byte randLED_index =  random(1,4);  //Using the random seeding choses a "random" number from 1-4
+            //assign the color index to its color
+            if (randLED_index == 0)
+              {
+                nextLED = 'R';
+              }
+            else if (randLED_index == 1)
+              {
+                nextLED = 'G';
+              }
+            else if (randLED_index == 2)
+              {
+                nextLED = 'Y';
+              }
+            else
+              {
+                nextLED = 'B';
+              }
+
+            currentPattern[patternLen] = nextLED;
+            patternLen++;
+          }
       }
-    
-    
-    flash_leds(enRedLED, enGreenLED, enYellowLED, enBlueLED, flashGoal);
-    
+
+
+
+
+
+      //Adding the next light to the pattern
+      if (patternLen <  levelLength)
+        {
+          byte randLED_index = random(1,4);
+          if (randLED_index == 0)
+              {
+                nextLED = 'R';
+              }
+            else if (randLED_index == 1)
+              {
+                nextLED = 'G';
+              }
+            else if (randLED_index == 2)
+              {
+                nextLED = 'Y';
+              }
+            else
+              {
+                nextLED = 'B';
+              }
+
+            currentPattern[patternLen] = nextLED;
+            patternLen++;
+        }
+
+
+
+
+
+
+        
+    // Debug print pattern
+    Serial.print("Pattern: ");
+    roundNum++;
+    for (byte i = 0; i < patternLen; i++) 
+    {
+      Serial.print(currentPattern[i]);
+      Serial.print(' ');
+    }
+    Serial.println();
+
     currentState = DEBUG;
 
     break;
   }
-
-//--------------------------------------------------------------------|
-//------------------------UPDATE PTRN----------------------------------|
-  case UPDATE_PTRN: {
-
-    break;
-  }
+  
 
 //--------------------------------------------------------------------|
 //------------------------DISPLAY PTRN----------------------------------|
