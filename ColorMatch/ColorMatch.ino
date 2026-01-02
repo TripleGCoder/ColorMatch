@@ -119,6 +119,13 @@ void flash_leds()
       digitalWrite(BLUE_LED, LOW);
       delay(msDelay);
     }
+    //reset LEDs
+    allSync = false;
+    enRedLED = false;
+    enGreenLED = false;
+    enYellowLED = false;
+    enBlueLED = false;
+
   
 }
 
@@ -205,7 +212,7 @@ void loop() {
         //Begin Prefilling the pattern for the level
         for (byte i = 0; i < startLen; i++)
           {
-            byte randLED_index =  random(1,4);  //Using the random seeding choses a "random" number from 1-4
+            byte randLED_index =  random(0,4);  //Using the random seeding choses a "random" number from 1-4
             //assign the color index to its color
             if (randLED_index == 0)
               {
@@ -236,7 +243,7 @@ void loop() {
       //Adding the next light to the pattern
       if (patternLen <  levelLength)
         {
-          byte randLED_index = random(1,4);
+          byte randLED_index = random(0,4);
           if (randLED_index == 0)
               {
                 nextLED = 'R';
@@ -274,7 +281,7 @@ void loop() {
     }
     Serial.println();
 
-    currentState = DEBUG;
+    currentState = DISPLAY_PTRN;
 
     break;
   }
@@ -283,9 +290,52 @@ void loop() {
 //--------------------------------------------------------------------|
 //------------------------DISPLAY PTRN----------------------------------|
   case DISPLAY_PTRN: {
+    delay(2000);
+    for (byte i = 0; i < patternLen; i++)
+    {
+      switch(currentPattern[i]){
 
-    break;
+      case 'R':
+      {
+        enRedLED = true;
+        flashGoal = 1;
+        flash_leds();
+        break;
+      }
+      
+      case 'G':
+      {
+        enGreenLED = true;
+        flashGoal = 1;
+        flash_leds();
+        break;
+      }
+
+      case 'Y':
+      {
+        enYellowLED = true;
+        flashGoal = 1;
+        flash_leds();
+        break;
+      }
+
+      case 'B':
+      {
+        enBlueLED = true;
+        flashGoal = 1;
+        flash_leds();
+        break;
+      }
+      default:
+      {
+        Serial.println("Ligth Pattern Error");
+        break;
+      }
+      }
+    }
+    currentState = DEBUG;
   }
+
 
 //--------------------------------------------------------------------|
 //------------------------AWAIT RES----------------------------------|
