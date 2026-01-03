@@ -46,8 +46,12 @@ const byte MinL_lvl1 = 0;
 const byte MinL_lvl2 = 3;
 const byte MinL_lvl3 = 4;
 
-//Game Timing
+//Game 
 bool timeDone = false;
+bool corAnsw = false;
+bool lastRound = false;
+bool lastLevel = false;
+bool lastLife = false;
 
 char const LEDs[] = {'R', 'G', 'Y', 'B'};
 byte currentIndex = 0; 
@@ -159,7 +163,7 @@ void loop() {
 
   case START: {
     //NOTHING WORKS UNTIL START IS PRESSED
-    char pressedButton = heroKeypad.getKey();  // Wait until a button is pressed
+    pressedButton = heroKeypad.getKey();  // Wait until a button is pressed
     if (pressedButton)
       {
         Serial.println(pressedButton);
@@ -171,9 +175,7 @@ void loop() {
         currentState = UPDATE_PTRN;
         flash_leds();
       }
-
-
-
+    pressedButton = NO_KEY;
     break;
   }
 
@@ -319,13 +321,12 @@ void loop() {
     //Will return back if response is correct
     pressedButton = NO_KEY;
     pressedButton = heroKeypad.getKey();  // Wait until a button is pressed
-    bool timeout = timeDone;
 
     if (pressedButton != NO_KEY)
     {
       currentState = CHECK_RES;
     }
-    else if (timeout)
+    else if (timeDone)
     {
       pressedButton = NO_KEY;
       currentState = CHECK_RES;
@@ -337,14 +338,58 @@ void loop() {
 //--------------------------------------------------------------------|
 //------------------------CHECK RES----------------------------------|
   case CHECK_RES: {
-
+    if (pressedButton == currentPattern[currentIndex] && !timeDone)
+      {
+        corAnsw = true;
+      }
+      else
+      {
+        corAnsw = false;
+      }
+    currentState = UPDATE_GAME;
     break;
   }
 
 //--------------------------------------------------------------------|
 //------------------------UPDATE_GAME----------------------------------|
   case UPDATE_GAME: {
+    if(corAnsw)
+    {
+      if (lastRound)
+      {
+        if (lastLevel)
+        {
+          currentState = GAME_WON;
+        }
+        else
+        {
+          roundNum = 0;
+          lastLife = false;
+          gamelvl++;
+          currentState = UPDATE_PTRN;
 
+        }
+      }
+      else
+      {
+      
+      roundNum++;
+      currentState = UPDATE_PTRN;
+      }
+    }
+    else
+    {
+      if(lastLife)
+      {
+        currentState = GAME_LOST;
+      }
+      else
+      {
+        roundNum = 0;
+        lastLife = true;
+        currentState = UPDATE_PTRN;
+      }
+    }
     break;
   }
 
