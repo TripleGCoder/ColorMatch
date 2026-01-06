@@ -1,62 +1,103 @@
 #include <Keypad.h>
 
-const byte ROW = 2;
-const byte COL = 4;
+/** 4x4 Keypad:
+y1: x  x  x  x
+y2  x  x  x  x
+y3  x  x  x  x
+y4  x  x  x  x
+   x1  x2 x3 x4
+**/
 
+//Var for size of the array for ROW and COL
+const byte ROW = 2; //Y#'s
+const byte COL = 4; // X#'s
 
-char current_round = 1;
+//define the corresponding pins that im using from the arduino to the buttons col and rows. 
+const byte ROW_PINS[ROW] = { 5, 4 };
+const byte COL_PINS[COL] = { 6, 7, 8, 9 };
 
-// Define what event will be returned by each button
+//Define the active buttons with their corresponding event output
 const char BUTTONS[ROW][COL] = {
   { 'R', 'G', 'Y', 'B' },
   { 'S', '0', '0', 'X' }
 };
 
-// Define row and column pins connected to the keypad
-const byte ROW_PINS[ROW] = { 5, 4 };
-const byte COL_PINS[COL] = { 6, 7, 8, 9 };
-
+//Encode/map the Events, Arduino Pin Selection and Row/Col's onto the keypad with the instance name heroKeypad
 Keypad heroKeypad = Keypad(makeKeymap(BUTTONS), ROW_PINS, COL_PINS, ROW, COL);
+/**Current 4x4 Keypad being used (- = Inactive)
+    R G Y B
+    S 0 0 X
+    - - - -
+    - - - -
+**/
 
-//User System
-char pressedButton = NO_KEY;
+/** ---------LED SETUP------------------*/
 
-
-//LED SETUP
+//Encode LED's to corresponding Arduino Pins
 #define RED_LED 13
 #define GREEN_LED 12
 #define YELLOW_LED 11
 #define BLUE_LED 10
 
-//  GAME PATTERN SETUP
-const byte MAX_PATTERN = 9;      //Defines the size of the array
-char currentPattern[MAX_PATTERN]; //Declares the array
-byte patternLen = 0;              //len of current pattern
-byte startLen = 0;
-char nextLED;
+char const LEDs[] = {'R', 'G', 'Y', 'B'}; //Make a "list" array for all possible LED colors (Used for when randomizing for nextLED)
 
-//Max Pattern Lenght per level
-const byte MaxL_lvl1 = 5;
-const byte MaxL_lvl2 = 7;
-const byte MaxL_lvl3 = MAX_PATTERN;
-byte levelLength = 0; //This will dictate the current Levels max length
+
+//Flashing Function Variables
+bool allSync = false; //Flag for enabling all LED's
+int flashGoal = 1;    //total num of flashed on LED's. Default: 1
+int StartFlashDelay = 200; //Delay for lightFlashing
+
+//set all Led's flag to off 
+bool enRedLED = false;
+bool enGreenLED = false;
+bool enYellowLED = false;
+bool enBlueLED = false;
+
+
+/**-------------- Game SetUp -----------**/
+
+//GAME FLAGS
+bool timeDone = false;    //If no response was given when awaiting user for certain time
+bool corAnsw = false;     //If user gave a correct valid answer
+bool lastLife = false;    //If user is on their last attempt 
+bool lastRound = false;   //If user is at the last round of THAT Level
+bool lastLevel = false;   //If user is at the Last level of the game
+
+//Round variables
+int roundNum = 0; //Keeps track of each round in a level
+char nextLED;     //global var holder for next LED
+
+//Level variables
+int gamelvl = 1; //Keeps track of each level in a round
+
+
+//User Settings
+char pressedButton = NO_KEY; //Makes a global var for the what button is pressed on the keypad  
+
+//GAME PATTERN SETUP
+const byte max_PatternLen = 9;      //Creates the biggest possible length array to fit all
+char currentPattern[max_PatternLen]; //Creates the array to hold the pattern
+
+byte patternLen = 0;              //len of the current pattern
+byte startLen = 0;                //initial starting length for each level
+
+
+
+//Max Length/Rounds per level
+const byte MaxL_lvl1 = 5;               //5 rounds in level 1
+const byte MaxL_lvl2 = 7;               //7       ||        2
+const byte MaxL_lvl3 = max_PatternLen;  //9       ||        3
+
+byte currentlvl_maxLen = 0; //Variable holder for the current level Max Len. If lvl1, 5 is max. Used for dynamic looping sequence.
 
 //Minimum starting Lenght per Level
+//Level 2 will start wil 3 patterns already while level 3 will start with 4.
 const byte MinL_lvl1 = 0;
 const byte MinL_lvl2 = 3;
 const byte MinL_lvl3 = 4;
 
-//Game 
-bool timeDone = false;
-bool corAnsw = false;
-bool lastRound = false;
-bool lastLevel = false;
-bool lastLife = false;
 
-char const LEDs[] = {'R', 'G', 'Y', 'B'};
-byte currentIndex = 0; 
-
-
+//States all States for the game (FSM)
 enum gameSTATE{
   START,
   FLASH_LEDS,
@@ -67,33 +108,15 @@ enum gameSTATE{
   UPDATE_GAME,
   GAME_WON,
   GAME_LOST,
-  DEBUG
+  DEBUG //A state where one can light each individual LED using first row 1,2,3,A
 };
 unsigned char currentState = START;
 
-// FSM shared control variables
-bool allSync = false;
-int flashGoal = 0;
-int msDelay = 150;
-
-//Round variables
-int roundNum = 0;
-int gamelvl = 1;
-
-bool enRedLED = false;
-bool enGreenLED = false;
-bool enYellowLED = false;
-bool enBlueLED = false;
-
-
-
-
-
-
-
-void flash_leds()
+//flashing helper function. When ever I need to flash certain LED's, I call the helper function 
+//and provide the amount of times somethign should flash and the msdelay interval between each Flash.
+void flash_leds(int msDelay = 150)
 {
-  if (allSync)
+  if (allSync)            //Quick Variable to turn on all LEDs
     {
       enRedLED = true;
       enGreenLED = true;
@@ -102,6 +125,7 @@ void flash_leds()
     }
 
   delay(msDelay*2);
+  //Turns on the enabled LEDS
   for (int i = 0; i < flashGoal; i++)
     {
       if (enRedLED)
@@ -122,14 +146,14 @@ void flash_leds()
         }
 
       delay(msDelay);
-
+  //Resets all LEDs to off
       digitalWrite(RED_LED, LOW);
       digitalWrite(GREEN_LED, LOW);
       digitalWrite(YELLOW_LED, LOW);
       digitalWrite(BLUE_LED, LOW);
       delay(msDelay);
     }
-    //reset LEDs
+    //reset LEDs flags
     allSync = false;
     enRedLED = false;
     enGreenLED = false;
@@ -166,14 +190,16 @@ void loop() {
     pressedButton = heroKeypad.getKey();  // Wait until a button is pressed
     if (pressedButton)
       {
-        Serial.println(pressedButton);
+        // Serial.println(pressedButton);
       }
     if (pressedButton == BUTTONS[1][0])
       {
         allSync = true;
-        flashGoal = 7;
+        flashGoal = 5;
         currentState = UPDATE_PTRN;
-        flash_leds();
+        Serial.print("Completed State Start");      //Debugging Flag
+
+        flash_leds(StartFlashDelay);
       }
     pressedButton = NO_KEY;
     break;
@@ -199,21 +225,21 @@ void loop() {
         if (gamelvl == 1)
           {
             startLen = MinL_lvl1;
-            levelLength = MaxL_lvl1;
+            currentlvl_maxLen = MaxL_lvl1;
           }
 
         //GAME PATTERN INITIALIZATION FOR LEVEL 2
         if (gamelvl == 2)
           {
             startLen = MinL_lvl2;
-            levelLength =  MaxL_lvl2;            
+            currentlvl_maxLen =  MaxL_lvl2;            
           }
 
         //GAME PATTERN INITIALIZATION FOR LEVEL 3
         if (gamelvl == 3)
           {
             startLen = MinL_lvl3;
-            levelLength = MaxL_lvl3;
+            currentlvl_maxLen = MaxL_lvl3;
           }
     
 
@@ -233,7 +259,7 @@ void loop() {
 
 
       //Adding the next light to the pattern
-      if (patternLen <  levelLength)
+      if (patternLen <  currentlvl_maxLen)
         {
           byte randLED_index = random(0,4);
           nextLED = LEDs[randLED_index];
@@ -247,17 +273,18 @@ void loop() {
 
 
         
-    // Debug print pattern
-    Serial.print("Pattern: ");
-    roundNum++;
-    for (byte i = 0; i < patternLen; i++) 
-    {
-      Serial.print(currentPattern[i]);
-      Serial.print(' ');
-    }
-    Serial.println();
+    // // Debug print pattern
+    // Serial.print("Pattern: ");
+    // roundNum++;
+    // for (byte i = 0; i < patternLen; i++) 
+    // {
+    //   Serial.print(currentPattern[i]);
+    //   Serial.print(' ');
+    // }
+    // Serial.println();
 
     currentState = DISPLAY_PTRN;
+    Serial.print("Completed State: UPDATE_PTRN");      //Debugging Flag
 
     break;
   }
@@ -310,6 +337,7 @@ void loop() {
       }
     }
     currentState = GET_RES;
+    Serial.print("Completed State: DISPLAY_PTRN");      //Debugging Flag
     break;
   }
 
@@ -319,26 +347,33 @@ void loop() {
   case GET_RES: {
     //Awaits for 1 response then moves to STATE:CHECK_RES,
     //Will return back if response is correct
-    pressedButton = NO_KEY;
+    pressedButton = NO_KEY; //Resets pressedButton
     pressedButton = heroKeypad.getKey();  // Wait until a button is pressed
 
     if (pressedButton != NO_KEY)
     {
       currentState = CHECK_RES;
+      Serial.print("Completed State: GET_RES");      //Debugging Flag
+      break
     }
     else if (timeDone)
     {
       pressedButton = NO_KEY;
       currentState = CHECK_RES;
+      break
     }
+
     //else it remain in Get Res 
+    currentState = GET_RES;
+    Serial.print("NO Response Yet");      //Debugging Flag
+
     break;
   }
 
 //--------------------------------------------------------------------|
 //------------------------CHECK RES----------------------------------|
   case CHECK_RES: {
-    if (pressedButton == currentPattern[currentIndex] && !timeDone)
+    if (pressedButton == currentPattern[roundNum] && !timeDone)
       {
         corAnsw = true;
       }
@@ -347,6 +382,7 @@ void loop() {
         corAnsw = false;
       }
     currentState = UPDATE_GAME;
+    Serial.print("Completed State: CHECK_RES");      //Debugging Flag
     break;
   }
 
@@ -390,19 +426,28 @@ void loop() {
         currentState = UPDATE_PTRN;
       }
     }
+    Serial.print("Completed State: UPDATE_GAME");      //Debugging Flag
     break;
   }
 
 //--------------------------------------------------------------------|
 //------------------------GAME WON----------------------------------|
   case GAME_WON: {
-    
+    for (int i=0; ;i++)
+    {
+      allSync = true;
+      flash_leds();
+      Serial.print("GAMEWON");      //Debugging Flag
+    }
     break;
   }
 
 //--------------------------------------------------------------------|
 //------------------------GAME LOST----------------------------------|
   case GAME_LOST: {
+      enRedLED = true;
+      flash_leds();
+      Serial.print("GAMELOST");      //Debugging Flag
 
       break;
     }
@@ -481,9 +526,9 @@ void loop() {
 
 
 //This will appened a newPattern into currentPattern that the player must repeat back
-  // if (currentIndex < MAX_PATTERNS) {
-  //   currentPattern[currentIndex] = newPattern
-  //   currentIndex++;
+  // if (roundNum < max_PatternLen) {
+  //   currentPattern[roundNum] = newPattern
+  //   roundNum++;
   // }
 
 
